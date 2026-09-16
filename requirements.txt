@@ -1,0 +1,6 @@
+torch>=2.1
+transformers>=4.40,<5.0
+tokenizers>=0.15
+pandas
+pyarrow
+numpy

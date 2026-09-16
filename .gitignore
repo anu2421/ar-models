@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+outputs/*.csv
+outputs/*.json
+!outputs/.gitkeep
+data/raw/
+data/*.parquet
+.DS_Store
