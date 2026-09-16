@@ -20,12 +20,19 @@ AR_VIEW_PATTERNS = [
 
 REQUIRED_COLUMNS = ["sequence", "length", "split", "similarity_group_id", "data_version"]
 
+# Some Data Engineering builds use different column names for the same concept.
+# Map: our expected name -> alternate names we've actually seen in the wild.
+COLUMN_ALIASES = {
+    "similarity_group_id": ["cluster_id"],
+}
+
 
 def find_ar_view(views_dir: str) -> str:
     """
     Search the views directory for a file that looks like the AR view.
     Raises FileNotFoundError with the full directory listing if nothing matches, so you
     can see what's actually there and fix AR_VIEW_PATTERNS instead of guessing blind.
+    Prefers .parquet over .csv when both are present (parquet preserves dtypes).
     """
     if not os.path.isdir(views_dir):
         raise FileNotFoundError(f"No such directory: {views_dir}")
@@ -42,6 +49,12 @@ def find_ar_view(views_dir: str) -> str:
             f"Files actually present:\n{listing}\n"
             "Add the real filename pattern to AR_VIEW_PATTERNS in common/data_view.py."
         )
+
+    parquet_candidates = [c for c in candidates if c.endswith(".parquet")]
+    if parquet_candidates:
+        if len(candidates) > 1:
+            print(f"Multiple candidate AR view files found, preferring parquet: {parquet_candidates[0]}")
+        return parquet_candidates[0]
 
     if len(candidates) > 1:
         print(f"WARNING: multiple candidate AR view files found, using the first: {candidates}")
@@ -63,6 +76,20 @@ def load_ar_view(views_dir: str) -> pd.DataFrame:
 
 def check_schema(df: pd.DataFrame) -> dict:
     present = set(df.columns)
-    missing = [c for c in REQUIRED_COLUMNS if c not in present]
-    extra = sorted(present - set(REQUIRED_COLUMNS))
-    return {"missing_required": missing, "extra_columns": extra, "n_rows": len(df)}
+    missing = []
+    resolved_aliases = {}
+    for required_col in REQUIRED_COLUMNS:
+        if required_col in present:
+            continue
+        alt_found = next((alt for alt in COLUMN_ALIASES.get(required_col, []) if alt in present), None)
+        if alt_found:
+            resolved_aliases[required_col] = alt_found
+        else:
+            missing.append(required_col)
+    extra = sorted(present - set(REQUIRED_COLUMNS) - set(resolved_aliases.values()))
+    return {
+        "missing_required": missing,
+        "resolved_via_alias": resolved_aliases,
+        "extra_columns": extra,
+        "n_rows": len(df),
+    }
