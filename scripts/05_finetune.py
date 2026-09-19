@@ -63,14 +63,19 @@ def make_collate_fn(pad_id):
     return collate
 
 
-def compute_loss(model, input_ids, attention_mask, vocab_size):
+def compute_loss(model, input_ids, attention_mask):
     """
     Manual causal-LM loss (shift-by-one, ignore padding) rather than relying on the
     model's internal `labels` handling — this custom modeling code's labels support
     wasn't verified, so computing it explicitly here is the safer bet.
+
+    vocab_size is read from the model's own output shape rather than the tokenizer's
+    reported vocab size — they can differ (e.g. the model pads its output layer to a
+    hardware-aligned size), and using the wrong one breaks the reshape below.
     """
     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
     logits = outputs.logits
+    vocab_size = logits.size(-1)
 
     shift_logits = logits[:, :-1, :].contiguous()
     shift_labels = input_ids[:, 1:].contiguous()
@@ -105,7 +110,6 @@ def main():
     print(f"Training on {len(train_df)} sequences, validating on {len(val_df)}.")
 
     model, tokenizer, device = load_model_and_tokenizer()
-    vocab_size = tokenizer.get_vocab_size(with_added_tokens=True)
     pad_id = tokenizer.encode(END_TOKEN).ids[0]  # reuse end-token id as pad filler
 
     train_ds = SequenceDataset(train_df["sequence"].tolist(), tokenizer)
@@ -125,7 +129,7 @@ def main():
     for epoch in range(args.epochs):
         for input_ids, attention_mask in train_loader:
             input_ids, attention_mask = input_ids.to(device), attention_mask.to(device)
-            loss = compute_loss(model, input_ids, attention_mask, vocab_size)
+            loss = compute_loss(model, input_ids, attention_mask)
 
             optimizer.zero_grad()
             loss.backward()
@@ -148,7 +152,7 @@ def main():
         with torch.no_grad():
             for input_ids, attention_mask in val_loader:
                 input_ids, attention_mask = input_ids.to(device), attention_mask.to(device)
-                val_losses.append(compute_loss(model, input_ids, attention_mask, vocab_size).item())
+                val_losses.append(compute_loss(model, input_ids, attention_mask).item())
         mean_val_loss = sum(val_losses) / len(val_losses) if val_losses else float("nan")
         print(f"epoch {epoch} done — mean val_loss {mean_val_loss:.4f}")
         with open(log_path, "a", newline="") as f:
