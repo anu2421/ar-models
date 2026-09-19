@@ -107,8 +107,9 @@ def main():
     parser.add_argument("--max-steps", type=int, default=None,
                          help="Optional hard cap on training steps, for a quick test run.")
     parser.add_argument("--fp16", action="store_true",
-                         help="Load and train in half precision — roughly halves memory use. "
-                              "Recommended for progen2-medium on a free-tier GPU.")
+                         help="Load and train in bfloat16 — roughly halves memory use, without "
+                              "the numeric instability plain float16 caused. Recommended for "
+                              "progen2-medium on a free-tier GPU.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -124,7 +125,9 @@ def main():
 
     model, tokenizer, device = load_model_and_tokenizer(
         model_name=args.model_name,
-        torch_dtype=torch.float16 if args.fp16 else None,
+        # bf16, not fp16: same memory savings, but bf16's wider numeric range avoids the
+        # NaN-loss instability plain fp16 hit during testing (Sept 2026).
+        torch_dtype=torch.bfloat16 if args.fp16 else None,
     )
     pad_id = tokenizer.encode(END_TOKEN).ids[0]  # reuse end-token id as pad filler
 
