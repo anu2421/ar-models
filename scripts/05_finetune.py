@@ -14,7 +14,7 @@ Usage:
     # challenger run:
     python scripts/05_finetune.py --views-dir /content/AMP/data/processed/views \
         --model-name hugohrban/progen2-medium --tag medium \
-        --epochs 2 --batch-size 4 --lr 5e-5
+        --epochs 2 --batch-size 4 --lr 5e-5 --fp16
 
 Deliverables (per the guide's Step 4 + Day-by-day Week 2 requirements):
     outputs/checkpoints/<tag or 'default'>/epoch_N/   — model + tokenizer at each epoch
@@ -106,6 +106,9 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--max-steps", type=int, default=None,
                          help="Optional hard cap on training steps, for a quick test run.")
+    parser.add_argument("--fp16", action="store_true",
+                         help="Load and train in half precision — roughly halves memory use. "
+                              "Recommended for progen2-medium on a free-tier GPU.")
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -119,7 +122,10 @@ def main():
     val_df = df[df["split"] == "validation"]
     print(f"Training on {len(train_df)} sequences, validating on {len(val_df)}.")
 
-    model, tokenizer, device = load_model_and_tokenizer(model_name=args.model_name)
+    model, tokenizer, device = load_model_and_tokenizer(
+        model_name=args.model_name,
+        torch_dtype=torch.float16 if args.fp16 else None,
+    )
     pad_id = tokenizer.encode(END_TOKEN).ids[0]  # reuse end-token id as pad filler
 
     train_ds = SequenceDataset(train_df["sequence"].tolist(), tokenizer)
@@ -186,6 +192,7 @@ def main():
         "lr": args.lr,
         "seed": args.seed,
         "max_seq_len": MAX_SEQ_LEN,
+        "fp16": args.fp16,
     }
     manifest_path = os.path.join(ROOT, "docs", f"finetune_manifest{suffix}.json")
     with open(manifest_path, "w") as f:

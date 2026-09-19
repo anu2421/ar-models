@@ -34,9 +34,21 @@ START_TOKEN = "1"
 END_TOKEN = "2"
 
 
-def load_model_and_tokenizer(model_name: str = MODEL_NAME, device: str | None = None):
+def load_model_and_tokenizer(
+    model_name: str = MODEL_NAME,
+    device: str | None = None,
+    torch_dtype=None,
+):
+    """
+    torch_dtype: pass torch.float16 to load the model in half precision, roughly halving
+    memory used by weights, gradients, and optimizer state — useful for fine-tuning
+    larger checkpoints (e.g. progen2-medium) on memory-limited GPUs like a free-tier
+    Colab T4. Defaults to fp32 (None) to match prior behavior for the baseline model.
+    """
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    model = AutoModelForCausalLM.from_pretrained(model_name, trust_remote_code=True)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, trust_remote_code=True, torch_dtype=torch_dtype
+    )
     model.to(device)
     model.eval()
 
