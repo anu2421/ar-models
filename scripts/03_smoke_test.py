@@ -1,11 +1,16 @@
 """
 Day 4 deliverable: smoke_candidates.csv + smoke_metrics.json — a fixed-seed 100-sequence
-generation, checked for valid length/alphabet, duplicates, and (once you have a real
-training set from Data Engineering) exact training-set matches.
+generation, checked for valid length/alphabet, duplicates, and mean length. Works for any
+model (baseline or challenger) via --model-name / --tag.
+
+Usage:
+    python scripts/03_smoke_test.py                                          # baseline (small)
+    python scripts/03_smoke_test.py --model-name hugohrban/progen2-medium --tag medium
 """
 
 import os
 import sys
+import argparse
 import json
 import pandas as pd
 
@@ -22,7 +27,14 @@ TOP_P = 0.9
 
 
 def main():
-    model, tokenizer, device = load_model_and_tokenizer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", default=MODEL_NAME)
+    parser.add_argument("--tag", default="",
+                         help="Suffix for output filenames, e.g. 'medium' -> smoke_candidates_medium.csv")
+    args = parser.parse_args()
+    suffix = f"_{args.tag}" if args.tag else ""
+
+    model, tokenizer, device = load_model_and_tokenizer(model_name=args.model_name)
 
     records = []
     for i in range(N_SEQUENCES):
@@ -38,7 +50,7 @@ def main():
             "length": len(seq),
             "valid": valid,
             "reason": reason,
-            "model_name": MODEL_NAME,
+            "model_name": args.model_name,
             "temperature": TEMPERATURE,
             "top_p": TOP_P,
             "seed": seed,
@@ -47,17 +59,17 @@ def main():
             print(f"  generated {i + 1}/{N_SEQUENCES}")
 
     df = pd.DataFrame(records)
-    candidates_path = os.path.join(ROOT, "outputs", "smoke_candidates.csv")
+    candidates_path = os.path.join(ROOT, "outputs", f"smoke_candidates{suffix}.csv")
     df.to_csv(candidates_path, index=False)
 
     metrics = summarize_validity(df["sequence"].tolist())
-    metrics["model_name"] = MODEL_NAME
+    metrics["model_name"] = args.model_name
     metrics["base_seed"] = BASE_SEED
     metrics["temperature"] = TEMPERATURE
     metrics["top_p"] = TOP_P
     metrics["mean_length"] = round(float(df["length"].mean()), 2)
 
-    metrics_path = os.path.join(ROOT, "outputs", "smoke_metrics.json")
+    metrics_path = os.path.join(ROOT, "outputs", f"smoke_metrics{suffix}.json")
     with open(metrics_path, "w") as f:
         json.dump(metrics, f, indent=2)
 

@@ -1,10 +1,16 @@
 """
-Day 1-2 deliverable: prove the baseline loads on your hardware.
-Writes docs/load_test.md — the guide asks for exactly this as an end-of-day deliverable.
+Day 1-2 deliverable: prove a model loads on your hardware.
+Writes docs/load_test.md (or docs/load_test_<tag>.md if --tag is given) — the guide asks
+for exactly this as an end-of-day deliverable.
+
+Usage:
+    python scripts/01_load_test.py                                          # baseline (small)
+    python scripts/01_load_test.py --model-name hugohrban/progen2-medium --tag medium
 """
 
 import os
 import sys
+import argparse
 import platform
 import torch
 import transformers
@@ -15,16 +21,24 @@ from common.model_utils import load_model_and_tokenizer, MODEL_NAME
 
 
 def main():
-    print(f"Loading {MODEL_NAME} ...")
-    model, tokenizer, device = load_model_and_tokenizer()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model-name", default=MODEL_NAME,
+                         help="HuggingFace model repo, e.g. hugohrban/progen2-medium")
+    parser.add_argument("--tag", default="",
+                         help="Suffix for output filenames, e.g. 'medium' -> load_test_medium.md")
+    args = parser.parse_args()
+    suffix = f"_{args.tag}" if args.tag else ""
+
+    print(f"Loading {args.model_name} ...")
+    model, tokenizer, device = load_model_and_tokenizer(model_name=args.model_name)
 
     n_params = sum(p.numel() for p in model.parameters())
     vocab_size = tokenizer.get_vocab_size(with_added_tokens=True)
 
     log_lines = [
-        "# Load test — ProGen2-small baseline",
+        f"# Load test — {args.model_name}",
         "",
-        f"- Model: `{MODEL_NAME}`",
+        f"- Model: `{args.model_name}`",
         f"- Device used: `{device}`",
         f"- Parameter count: {n_params:,}",
         f"- Tokenizer vocab size: {vocab_size}",
@@ -43,7 +57,7 @@ def main():
         logits = model(input_tensor).logits
     log_lines.append(f"- Sanity forward pass output shape: {tuple(logits.shape)}")
 
-    out_path = os.path.join(ROOT, "docs", "load_test.md")
+    out_path = os.path.join(ROOT, "docs", f"load_test{suffix}.md")
     with open(out_path, "w") as f:
         f.write("\n".join(log_lines))
 

@@ -1,5 +1,7 @@
 """
-Week 2: fine-tune ProGen2-small on the real AMP corpus.
+Week 2: fine-tune a ProGen2 model on the real AMP corpus. Works for the baseline (small)
+or challenger (medium) via --model-name / --tag — outputs go to separate, non-colliding
+paths so a challenger run never overwrites the baseline's results.
 
 Training set = split in {"core_train_only", "train"} → 26,699 sequences (per team
 decision, Sept 2026 — train alone was judged too small for a 151M-param model).
@@ -9,10 +11,15 @@ Usage:
     python scripts/05_finetune.py --views-dir /content/AMP/data/processed/views \
         --epochs 3 --batch-size 8 --lr 5e-5
 
+    # challenger run:
+    python scripts/05_finetune.py --views-dir /content/AMP/data/processed/views \
+        --model-name hugohrban/progen2-medium --tag medium \
+        --epochs 2 --batch-size 4 --lr 5e-5
+
 Deliverables (per the guide's Step 4 + Day-by-day Week 2 requirements):
-    outputs/checkpoints/epoch_N/   — model + tokenizer at each epoch
-    docs/finetune_manifest.json    — checkpoint, batch size, lr, seed, stopping rule, data version
-    docs/finetune_log.csv          — loss per step, for the eventual comparison report
+    outputs/checkpoints/<tag or 'default'>/epoch_N/   — model + tokenizer at each epoch
+    docs/finetune_manifest<_tag>.json                 — checkpoint, batch size, lr, seed, data version
+    docs/finetune_log<_tag>.csv                       — loss per step, for the comparison report
 """
 
 import os
@@ -66,12 +73,8 @@ def make_collate_fn(pad_id):
 def compute_loss(model, input_ids, attention_mask):
     """
     Manual causal-LM loss (shift-by-one, ignore padding) rather than relying on the
-    model's internal `labels` handling — this custom modeling code's labels support
-    wasn't verified, so computing it explicitly here is the safer bet.
-
-    vocab_size is read from the model's own output shape rather than the tokenizer's
-    reported vocab size — they can differ (e.g. the model pads its output layer to a
-    hardware-aligned size), and using the wrong one breaks the reshape below.
+    model's internal `labels` handling. vocab_size is read from the model's own output
+    shape (not the tokenizer's reported vocab size) since they can differ.
     """
     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
     logits = outputs.logits
@@ -92,6 +95,11 @@ def compute_loss(model, input_ids, attention_mask):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--views-dir", required=True)
+    parser.add_argument("--model-name", default=MODEL_NAME,
+                         help="HuggingFace model repo, e.g. hugohrban/progen2-medium")
+    parser.add_argument("--tag", default="",
+                         help="Subfolder/suffix for outputs, e.g. 'medium' keeps challenger "
+                              "runs separate from the baseline's checkpoints and logs")
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--lr", type=float, default=5e-5)
@@ -101,6 +109,8 @@ def main():
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
+    suffix = f"_{args.tag}" if args.tag else ""
+    ckpt_subdir = args.tag if args.tag else "default"
 
     df = load_ar_view(args.views_dir)
     data_version = df["data_version"].iloc[0] if "data_version" in df.columns else "unknown"
@@ -109,7 +119,7 @@ def main():
     val_df = df[df["split"] == "validation"]
     print(f"Training on {len(train_df)} sequences, validating on {len(val_df)}.")
 
-    model, tokenizer, device = load_model_and_tokenizer()
+    model, tokenizer, device = load_model_and_tokenizer(model_name=args.model_name)
     pad_id = tokenizer.encode(END_TOKEN).ids[0]  # reuse end-token id as pad filler
 
     train_ds = SequenceDataset(train_df["sequence"].tolist(), tokenizer)
@@ -120,7 +130,7 @@ def main():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
-    log_path = os.path.join(ROOT, "docs", "finetune_log.csv")
+    log_path = os.path.join(ROOT, "docs", f"finetune_log{suffix}.csv")
     with open(log_path, "w", newline="") as f:
         csv.writer(f).writerow(["epoch", "step", "split", "loss"])
 
@@ -159,14 +169,14 @@ def main():
             csv.writer(f).writerow([epoch, global_step, "val", mean_val_loss])
         model.train()
 
-        ckpt_dir = os.path.join(ROOT, "outputs", "checkpoints", f"epoch_{epoch}")
+        ckpt_dir = os.path.join(ROOT, "outputs", "checkpoints", ckpt_subdir, f"epoch_{epoch}")
         os.makedirs(ckpt_dir, exist_ok=True)
         model.save_pretrained(ckpt_dir)
         tokenizer.save(os.path.join(ckpt_dir, "tokenizer.json"))
         print(f"Saved checkpoint: {ckpt_dir}")
 
     manifest = {
-        "base_model": MODEL_NAME,
+        "base_model": args.model_name,
         "data_version": str(data_version),
         "train_splits_used": sorted(TRAIN_SPLITS),
         "n_train_sequences": len(train_df),
@@ -177,7 +187,7 @@ def main():
         "seed": args.seed,
         "max_seq_len": MAX_SEQ_LEN,
     }
-    manifest_path = os.path.join(ROOT, "docs", "finetune_manifest.json")
+    manifest_path = os.path.join(ROOT, "docs", f"finetune_manifest{suffix}.json")
     with open(manifest_path, "w") as f:
         json.dump(manifest, f, indent=2)
     print(f"\nWrote {manifest_path}")

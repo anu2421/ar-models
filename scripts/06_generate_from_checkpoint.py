@@ -1,11 +1,12 @@
 """
-Generate a small pool from a fine-tuned checkpoint and compare it against the pretrained
-baseline's smoke test (which had mean_length 50.0 — nothing stopped naturally). This
-tells us whether fine-tuning actually taught the model to produce properly-terminated
-short peptides.
+Generate a small pool from a fine-tuned checkpoint (baseline or challenger) and compare
+it against the pretrained baseline's smoke test. Reads the tokenizer from inside the
+checkpoint folder itself (saved there by 05_finetune.py), so this works automatically
+for any model size without needing a separate --model-name flag.
 
 Usage:
-    python scripts/06_generate_from_checkpoint.py --checkpoint outputs/checkpoints/epoch_1 --n 100
+    python scripts/06_generate_from_checkpoint.py --checkpoint outputs/checkpoints/default/epoch_1 --n 100
+    python scripts/06_generate_from_checkpoint.py --checkpoint outputs/checkpoints/medium/epoch_1 --n 100 --tag medium
 """
 
 import os
@@ -29,8 +30,13 @@ def load_finetuned(checkpoint_dir: str, device: str | None = None):
     model = AutoModelForCausalLM.from_pretrained(checkpoint_dir, trust_remote_code=True)
     model.to(device)
     model.eval()
-    # Tokenizer is unchanged by fine-tuning, so load the original rather than from checkpoint
-    tokenizer = Tokenizer.from_pretrained(MODEL_NAME)
+
+    local_tokenizer_path = os.path.join(checkpoint_dir, "tokenizer.json")
+    if os.path.exists(local_tokenizer_path):
+        tokenizer = Tokenizer.from_file(local_tokenizer_path)
+    else:
+        print(f"No tokenizer.json in {checkpoint_dir}, falling back to {MODEL_NAME} from the Hub.")
+        tokenizer = Tokenizer.from_pretrained(MODEL_NAME)
     tokenizer.no_padding()
     return model, tokenizer, device
 
@@ -40,7 +46,10 @@ def main():
     parser.add_argument("--checkpoint", required=True, help="Path to a saved epoch_N checkpoint dir")
     parser.add_argument("--n", type=int, default=100)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--tag", default="",
+                         help="Suffix for output filenames, e.g. 'medium' -> finetuned_candidates_medium.csv")
     args = parser.parse_args()
+    suffix = f"_{args.tag}" if args.tag else ""
 
     model, tokenizer, device = load_finetuned(args.checkpoint)
 
@@ -62,14 +71,14 @@ def main():
             print(f"  generated {i + 1}/{args.n}")
 
     df = pd.DataFrame(records)
-    out_csv = os.path.join(ROOT, "outputs", "finetuned_candidates.csv")
+    out_csv = os.path.join(ROOT, "outputs", f"finetuned_candidates{suffix}.csv")
     df.to_csv(out_csv, index=False)
 
     metrics = summarize_validity(df["sequence"].tolist())
     metrics["mean_length"] = round(float(df["length"].mean()), 2)
     metrics["checkpoint"] = args.checkpoint
 
-    out_json = os.path.join(ROOT, "outputs", "finetuned_metrics.json")
+    out_json = os.path.join(ROOT, "outputs", f"finetuned_metrics{suffix}.json")
     with open(out_json, "w") as f:
         json.dump(metrics, f, indent=2)
 
@@ -77,9 +86,6 @@ def main():
     print(json.dumps(metrics, indent=2))
     print(f"\nWrote {out_csv}")
     print(f"Wrote {out_json}")
-    print("\nCompare mean_length above against the pretrained baseline's 50.0 from "
-          "outputs/smoke_metrics.json — a drop toward realistic AMP lengths (most known "
-          "AMPs are well under 50 residues) means fine-tuning worked as intended.")
 
 
 if __name__ == "__main__":
