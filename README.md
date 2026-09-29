@@ -9,6 +9,20 @@ schema-conformant candidate pool to the Shared Evaluator role.
 
 ---
 
+## Start here
+
+| If you want | Read |
+| --- | --- |
+| The results and the final configuration | [Section 8](#8-results) below |
+| Why this model and these settings were chosen | [`docs/winner_decision.md`](docs/winner_decision.md) |
+| The candidate pool for the evaluator | [`outputs/ar_candidates.parquet`](outputs/ar_candidates.parquet) + [`outputs/generation_manifest.json`](outputs/generation_manifest.json) |
+| Proof the numbers are reproducible | [`docs/reproducibility_check.md`](docs/reproducibility_check.md) |
+| The novelty measurement for the final pool | [`docs/novelty_report_epoch_0_t13.md`](docs/novelty_report_epoch_0_t13.md) |
+
+Headline: 94% novelty, 4% exact training matches, 0.99 effective diversity, 100 candidates.
+The first attempt scored 100% validity while being 40% copied training data;
+`docs/winner_decision.md` covers how that was caught and fixed.
+
 ## 1. What this repo produces
 
 | Guide deliverable | Produced by | Lands in |
