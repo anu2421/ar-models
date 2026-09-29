@@ -1,0 +1,27 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+
+# Model checkpoints are far too large for git — keep them out, but keep the
+# manifests and reports that describe them (those live in docs/ and are tracked).
+outputs/checkpoints/
+*.safetensors
+*.bin
+*.pt
+
+# Raw data belongs to Data Engineering, never to this repo.
+data/raw/
+data/*.parquet
+data/*.csv
+
+# Scratch files
+outputs/_repro_worker.py
+
+# NOTE: run outputs (outputs/*.csv, outputs/*.json) are deliberately NOT ignored.
+# A reviewer cloning this repo must be able to see the evidence that the scripts
+# ran and what they produced. Commit your smoke metrics, overlap reports, sampling
+# comparison, candidate export and manifests.

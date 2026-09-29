@@ -24,9 +24,15 @@ def main():
         required=True,
         help="Path to the Data Engineering repo's data/processed/views/ folder",
     )
+    parser.add_argument(
+        "--view-path",
+        default=None,
+        help="Exact AR view file, bypassing auto-detection. Prefer this once Data "
+             "Engineering tells you the real filename.",
+    )
     args = parser.parse_args()
 
-    df = load_ar_view(args.views_dir)
+    df = load_ar_view(args.views_dir, path=args.view_path)
     schema = check_schema(df)
 
     print("\n--- Schema check ---")

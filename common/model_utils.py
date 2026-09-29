@@ -5,33 +5,40 @@ HuggingFace — an unofficial but weight-identical mirror of Salesforce's ProGen
 ProGen2's tokenizer uses "1" as a start-of-sequence marker meaning "generate N-to-C" and
 "2" as the corresponding end token. Confirmed against 02_tokenizer_test.py output.
 
-Incorporates three suggestions from code review (Rishi, Week 1):
-  1. KV caching (past_key_values / use_cache=True) — only the new token is fed to the
-     model each step instead of the whole sequence so far, which is what makes
-     autoregressive sampling fast at scale.
-  2. Min-length guard — the end token's logit is masked out until the sequence has
-     reached MIN_LENGTH residues, so the model can never emit an invalid <8-residue
-     candidate.
-  3. Standard-amino-acid-only masking — every non-standard token (B, X, Z, U, O, and any
-     other special/non-standard-residue tokens in the vocab) is masked out during
-     sampling, so generation can't produce an automatically-invalid sequence.
+Sampling controls, in the order they are applied per step:
+  1. temperature scaling
+  2. allowed-token masking — only the 20 standard amino acids are ever sampleable, plus
+     the end token once min_len residues exist. Everything else (B, X, Z, U, O, pad,
+     specials) is masked to -inf, so generation cannot emit an automatically-invalid
+     residue.
+  3. top-p (nucleus) truncation
+  4. multinomial draw
+
+KV caching (use_cache=True, feeding only the new token each step) is what makes this
+usable at scale.
+
+The standard-amino-acid token id list is resolved ONCE per tokenizer and memoised — it
+used to be rebuilt on every single decoding step, which is invisible at 100 sequences and
+expensive at 50,000.
 
 NOTE: KV caching assumes this model's forward() accepts `past_key_values` and returns
-`outputs.past_key_values`, which is standard for GPT-style HF causal LMs but hasn't been
-verified against this specific custom model code. Run a quick smoke test
-(03_smoke_test.py) after pulling this change to confirm output still looks sane before
-trusting it for a large scaled run.
+`outputs.past_key_values`, which is standard for GPT-style HF causal LMs. If a future
+transformers version changes the cache object, `03_smoke_test.py` is the canary — a
+sudden collapse in sequence diversity means the cache is being ignored or misfed.
 """
 
 import torch
 from transformers import AutoModelForCausalLM
 from tokenizers import Tokenizer
 
-from .validity import STANDARD_AMINO_ACIDS, MIN_LENGTH
+from .validity import STANDARD_AMINO_ACIDS, MIN_LENGTH, MAX_LENGTH
 
 MODEL_NAME = "hugohrban/progen2-small"
 START_TOKEN = "1"
 END_TOKEN = "2"
+
+# Memo table: id(tokenizer) -> sorted list of the 20 standard amino-acid token ids.
+_AA_ID_CACHE: dict[int, list[int]] = {}
 
 
 def load_model_and_tokenizer(
@@ -40,10 +47,10 @@ def load_model_and_tokenizer(
     torch_dtype=None,
 ):
     """
-    torch_dtype: pass torch.float16 to load the model in half precision, roughly halving
-    memory used by weights, gradients, and optimizer state — useful for fine-tuning
-    larger checkpoints (e.g. progen2-medium) on memory-limited GPUs like a free-tier
-    Colab T4. Defaults to fp32 (None) to match prior behavior for the baseline model.
+    torch_dtype: pass torch.bfloat16 to halve the memory used by weights. Note that
+    training with bf16 *master* weights is not the same thing as mixed precision — see
+    the note in scripts/05_finetune.py. Defaults to fp32 (None), which is what the
+    baseline smoke tests use.
     """
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     model = AutoModelForCausalLM.from_pretrained(
@@ -58,22 +65,52 @@ def load_model_and_tokenizer(
     return model, tokenizer, device
 
 
-def _standard_aa_token_ids(tokenizer) -> list[int]:
-    """Token IDs for exactly the 20 standard amino acids, per this tokenizer's vocab."""
+def standard_aa_token_ids(tokenizer) -> list[int]:
+    """
+    Token IDs for exactly the 20 standard amino acids, per this tokenizer's vocab.
+    Memoised per tokenizer instance. Raises if any of the 20 is missing — silently
+    generating from a 19-letter alphabet would quietly bias every downstream result.
+    """
+    key = id(tokenizer)
+    if key in _AA_ID_CACHE:
+        return _AA_ID_CACHE[key]
+
     vocab = tokenizer.get_vocab()
-    ids = [vocab[aa] for aa in STANDARD_AMINO_ACIDS if aa in vocab]
-    if len(ids) != len(STANDARD_AMINO_ACIDS):
-        missing = STANDARD_AMINO_ACIDS - set(vocab.keys())
-        print(f"WARNING: {len(missing)} standard amino acids not found as single tokens "
-              f"in the vocab: {missing}. Check the tokenizer's vocab layout.")
+    missing = sorted(aa for aa in STANDARD_AMINO_ACIDS if aa not in vocab)
+    if missing:
+        raise ValueError(
+            f"These standard amino acids are not single tokens in this tokenizer's "
+            f"vocab: {missing}. Generation would silently use a reduced alphabet. "
+            f"Inspect the vocab layout before continuing (see 02_tokenizer_test.py)."
+        )
+
+    ids = sorted(vocab[aa] for aa in STANDARD_AMINO_ACIDS)
+    _AA_ID_CACHE[key] = ids
     return ids
+
+
+def _top_p_filter(probs: torch.Tensor, top_p: float) -> torch.Tensor:
+    """
+    Nucleus filtering. Keeps the smallest set of tokens whose cumulative probability
+    reaches top_p, renormalised. Returns (sorted_probs, sorted_idx) so the caller can
+    draw and map back.
+    """
+    sorted_probs, sorted_idx = torch.sort(probs, descending=True)
+    cumulative = torch.cumsum(sorted_probs, dim=-1)
+    # shift by one so the token that crosses the threshold is itself kept
+    cutoff = cumulative > top_p
+    cutoff[..., 1:] = cutoff[..., :-1].clone()
+    cutoff[..., 0] = False
+    sorted_probs = sorted_probs.masked_fill(cutoff, 0.0)
+    sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
+    return sorted_probs, sorted_idx
 
 
 def generate_sequence(
     model,
     tokenizer,
     device: str,
-    max_len: int = 50,
+    max_len: int = MAX_LENGTH,
     min_len: int = MIN_LENGTH,
     temperature: float = 1.0,
     top_p: float = 0.9,
@@ -90,7 +127,11 @@ def generate_sequence(
 
     start_id = tokenizer.encode(START_TOKEN).ids
     end_id = tokenizer.encode(END_TOKEN).ids[0]
-    standard_ids = _standard_aa_token_ids(tokenizer)
+    standard_ids = standard_aa_token_ids(tokenizer)
+
+    # Precompute the two allowed-id tensors instead of rebuilding a python list per step.
+    allowed_no_end = torch.tensor(standard_ids, device=device, dtype=torch.long)
+    allowed_with_end = torch.tensor(standard_ids + [end_id], device=device, dtype=torch.long)
 
     input_ids = torch.tensor([start_id], device=device)
     generated = input_ids
@@ -101,27 +142,17 @@ def generate_sequence(
     with torch.no_grad():
         for _ in range(max_len):
             outputs = model(cur_input, past_key_values=past_key_values, use_cache=True)
-            logits = outputs.logits[:, -1, :]
+            logits = outputs.logits[:, -1, :].float()  # .float() keeps bf16 models stable here
             past_key_values = outputs.past_key_values
 
             logits = logits / max(temperature, 1e-5)
 
-            allowed_ids = list(standard_ids)
-            if n_residues >= min_len:
-                allowed_ids.append(end_id)
-
+            allowed = allowed_with_end if n_residues >= min_len else allowed_no_end
             masked_logits = torch.full_like(logits, float("-inf"))
-            masked_logits[:, allowed_ids] = logits[:, allowed_ids]
+            masked_logits[:, allowed] = logits[:, allowed]
 
             probs = torch.softmax(masked_logits, dim=-1)
-            sorted_probs, sorted_idx = torch.sort(probs, descending=True)
-            cumulative = torch.cumsum(sorted_probs, dim=-1)
-            cutoff = cumulative > top_p
-            cutoff[..., 1:] = cutoff[..., :-1].clone()
-            cutoff[..., 0] = False
-            sorted_probs[cutoff] = 0.0
-            sorted_probs = sorted_probs / sorted_probs.sum(dim=-1, keepdim=True)
-
+            sorted_probs, sorted_idx = _top_p_filter(probs, top_p)
             next_in_sorted = torch.multinomial(sorted_probs, num_samples=1)
             next_token = sorted_idx.gather(-1, next_in_sorted)
 
