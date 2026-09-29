@@ -1,0 +1,68 @@
+{
+  "base_model": "hugohrban/progen2-small",
+  "data_version": "1.0",
+  "view_source_path": "/content/AMP/data/processed/views/autoregressive_view.parquet",
+  "applied_column_aliases": {
+    "similarity_group_id": "cluster_id"
+  },
+  "train_splits_used": [
+    "core_train_only",
+    "train"
+  ],
+  "val_splits_used": [
+    "val",
+    "validation"
+  ],
+  "n_train_rows_in_view": 26699,
+  "n_val_rows_in_view": 405,
+  "train_dataset": {
+    "kept": 26699,
+    "dropped_too_long": 0,
+    "dropped_empty": 0
+  },
+  "val_dataset": {
+    "kept": 405,
+    "dropped_too_long": 0,
+    "dropped_empty": 0
+  },
+  "epochs_requested": 3,
+  "epochs_completed": 3,
+  "steps_completed": 10014,
+  "steps_planned": 10014,
+  "stopped_early_by_max_steps": false,
+  "batch_size": 8,
+  "lr": 5e-05,
+  "warmup_steps": 300,
+  "warmup_ratio": 0.03,
+  "grad_clip": 1.0,
+  "seed": 42,
+  "max_seq_len": 52,
+  "precision": "fp32",
+  "device": "cuda",
+  "gpu_name": "Tesla T4",
+  "peak_gpu_mem_gb": 3.07,
+  "wall_clock_seconds": 1619.9,
+  "val_history": [
+    {
+      "epoch": 0,
+      "step": 3338,
+      "val_loss": 2.52353979325762
+    },
+    {
+      "epoch": 1,
+      "step": 6676,
+      "val_loss": 2.521769296889212
+    },
+    {
+      "epoch": 2,
+      "step": 10014,
+      "val_loss": 2.991021048788931
+    }
+  ],
+  "checkpoints": [
+    "outputs/checkpoints/default/epoch_0",
+    "outputs/checkpoints/default/epoch_1",
+    "outputs/checkpoints/default/epoch_2"
+  ],
+  "torch_version": "2.11.0+cu128"
+}

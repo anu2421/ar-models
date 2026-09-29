@@ -205,17 +205,29 @@ identity. Do not quote these as alignment identities in the final write-up.
 
 ## 8. Results
 
-_Fill this in after the real runs — a reviewer cloning this repo should see the numbers here
-without running anything._
+Generated 2026-09-29 against Data Engineering view `data_version 1.0`
+(27,509 sequences; 26,699 in `core_train_only` + `train`).
 
 | Run | Model | Validity | Novelty | Effective diversity | Mean length |
 | --- | --- | --- | --- | --- | --- |
-| Baseline smoke | progen2-small (pretrained) | — | — | — | — |
-| Fine-tuned | progen2-small, 3 epochs | — | — | — | — |
-| Challenger | progen2-medium | — | — | — | — |
+| Baseline smoke | progen2-small (pretrained) | 100% | 100% | 1.00 | 50.0 |
+| Fine-tuned (final) | progen2-small, 1 epoch, T=1.3 | 100% | **94%** | 0.99 | 20.2 |
+| Challenger | progen2-medium | not run | — | — | — |
 
-Sampling settings chosen: _T = —, top_p = —_ (justified in `docs/sampling_report.md`).
-Winner and reasoning: `docs/winner_decision.md`.
+Final configuration: checkpoint `epoch_0`, temperature 1.3, top_p 0.9, seed 42.
+Exported as `outputs/ar_candidates.parquet` (run_id `ar_final_ep0_t13`), 100 candidates,
+4% exact training matches, 4% near matches.
+
+**Read the baseline row carefully.** Every pretrained sequence is exactly 50 residues —
+the model never emits an end token and runs into the length cap. Its 100% novelty means it
+produces 50-mers unlike any AMP, not that it is a good generator. The fine-tuned mean length
+of 20.2 against a training mean of 20.85 is the meaningful comparison.
+
+Validity is ~100% everywhere by construction (see §6) and does not discriminate between
+runs. Novelty does. The first attempt — the last checkpoint at default temperature —
+produced a 100% valid pool that was 40% verbatim training sequences; see
+`docs/winner_decision.md` for how that was found and fixed, and
+`outputs/sampling_comparison_novelty.csv` for the full sweep.
 
 ---
 

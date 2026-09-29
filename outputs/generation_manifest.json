@@ -1,0 +1,96 @@
+{
+  "run_id": "ar_final_ep0_t13",
+  "domain": "ar",
+  "generated_at": "2026-09-29T13:58:38+0000",
+  "export_file": "ar_candidates.parquet",
+  "n_candidates": 100,
+  "n_invalid_kept": 0,
+  "source_candidate_files": [
+    "finetuned_candidates_epoch_0_t13.csv"
+  ],
+  "deduplicated": false,
+  "model": {
+    "model_name": "outputs/checkpoints/default/epoch_0",
+    "checkpoint": "outputs/checkpoints/default/epoch_0"
+  },
+  "data": {
+    "data_version": "1.0",
+    "view_source_path": "/content/AMP/data/processed/views/autoregressive_view.parquet",
+    "train_splits_used": [
+      "core_train_only",
+      "train"
+    ],
+    "n_training_sequences": 26699
+  },
+  "validity_rules": {
+    "alphabet": "20 standard amino acids",
+    "min_length": 8,
+    "max_length": 50
+  },
+  "metrics": {
+    "validity": {
+      "n_generated": 100,
+      "n_valid": 100,
+      "validity_rate": 1.0,
+      "reason_counts": {
+        "valid": 100
+      },
+      "n_duplicates": 0,
+      "n_unique": 100
+    },
+    "training_overlap": {
+      "n_candidates": 100,
+      "n_training": 26699,
+      "max_edits": 1,
+      "identity_threshold": 0.9,
+      "n_exact_matches": 4,
+      "exact_match_rate": 0.04,
+      "n_near_matches": 4,
+      "near_match_rate": 0.04,
+      "n_high_identity": 6,
+      "high_identity_rate": 0.06,
+      "n_novel": 94,
+      "novelty_rate": 0.94
+    },
+    "internal_redundancy": {
+      "n_candidates": 100,
+      "n_exact_unique": 100,
+      "exact_duplicate_count": 0,
+      "n_clusters": 99,
+      "largest_cluster_size": 2,
+      "singleton_rate": 0.98,
+      "effective_diversity": 0.99,
+      "cluster_size_histogram": {
+        "2": 1,
+        "1": 98
+      },
+      "max_edits": 2
+    }
+  },
+  "scoring_note": "No ranking applied. raw_score is empty unless a scorer was run separately. Final scoring and selection belong to the Shared Evaluator role.",
+  "environment": {
+    "python": "3.13.15",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "git_commit": "dcb9d47e0794781fdd29c6629d1003525e2b73fe"
+  },
+  "column_contract": [
+    "sequence_id",
+    "sequence",
+    "domain",
+    "model_name",
+    "run_id",
+    "length",
+    "is_valid",
+    "invalid_reason",
+    "raw_score",
+    "raw_score_type",
+    "temperature",
+    "top_p",
+    "seed",
+    "exact_training_match",
+    "near_training_match",
+    "nearest_edit_distance",
+    "data_version",
+    "generated_at"
+  ]
+}

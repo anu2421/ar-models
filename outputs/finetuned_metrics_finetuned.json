@@ -1,0 +1,12 @@
+{
+  "n_generated": 100,
+  "n_valid": 100,
+  "validity_rate": 1.0,
+  "reason_counts": {
+    "valid": 100
+  },
+  "n_duplicates": 0,
+  "n_unique": 100,
+  "mean_length": 21.97,
+  "checkpoint": "outputs/checkpoints/default/epoch_2"
+}

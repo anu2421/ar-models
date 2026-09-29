@@ -28,10 +28,15 @@ but this has not been verified checksum-for-checksum.
 | License | BSD-3-Clause (Salesforce) |
 | Memory, generation | ~3GB GPU |
 | Memory, fine-tuning | needs `--amp`; fp32 will OOM on a T4 |
-| Go/no-go | **GO** — run with `--model-name hugohrban/progen2-medium --tag medium` |
+| Go/no-go | **NOT RUN** — compute budget, see below |
 
-Fill in measured runtime and peak memory from `docs/finetune_manifest_medium.json` once the
-challenger run completes.
+**Outcome: not run.** The baseline reached 94% novelty at ~0.45 s/sequence on a free-tier
+T4 (`docs/winner_decision.md`). Fine-tuning medium needs `--amp` and roughly 4x the wall
+clock, and the pool's main weakness — training overlap — was solved by checkpoint and
+temperature selection rather than model capacity. The guide (§5) is explicit that a larger
+model should not be preferred because its paper reports better numbers, and that the simpler
+option should be kept when the complex one does not add reliable value inside our own
+pipeline. Revisit only if the Shared Evaluator finds this pool weak on predicted activity.
 
 ## Considered and not selected
 

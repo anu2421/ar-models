@@ -1,0 +1,109 @@
+{
+  "candidate_file": "outputs/finetuned_candidates_epoch_0_t13.csv",
+  "reference": "splits ['core_train_only', 'train']",
+  "data_version": "1.0",
+  "validity": {
+    "n_generated": 100,
+    "n_valid": 100,
+    "validity_rate": 1.0,
+    "reason_counts": {
+      "valid": 100
+    },
+    "n_duplicates": 0,
+    "n_unique": 100
+  },
+  "training_overlap": {
+    "n_candidates": 100,
+    "n_training": 26699,
+    "max_edits": 1,
+    "identity_threshold": 0.9,
+    "n_exact_matches": 4,
+    "exact_match_rate": 0.04,
+    "n_near_matches": 4,
+    "near_match_rate": 0.04,
+    "n_high_identity": 6,
+    "high_identity_rate": 0.06,
+    "n_novel": 94,
+    "novelty_rate": 0.94
+  },
+  "internal_redundancy": {
+    "n_candidates": 100,
+    "n_exact_unique": 100,
+    "exact_duplicate_count": 0,
+    "n_clusters": 99,
+    "largest_cluster_size": 2,
+    "singleton_rate": 0.98,
+    "effective_diversity": 0.99,
+    "cluster_size_histogram": {
+      "2": 1,
+      "1": 98
+    },
+    "top_clusters": [
+      {
+        "size": 2,
+        "representative": "RRCAVVLIVIRR",
+        "members_preview": [
+          "RRCAVVLIVIRR",
+          "RRAAVVLIVARR"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "YLKKKYGPSPWNKDVKDILGKN",
+        "members_preview": [
+          "YLKKKYGPSPWNKDVKDILGKN"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "WAFRLIQARKLR",
+        "members_preview": [
+          "WAFRLIQARKLR"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "SIWMIWKAKRWWIRWRG",
+        "members_preview": [
+          "SIWMIWKAKRWWIRWRG"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "GLLGAGLLGGAGGL",
+        "members_preview": [
+          "GLLGAGLLGGAGGL"
+        ]
+      }
+    ],
+    "max_edits": 2
+  },
+  "group_coverage": {
+    "n_candidates": 100,
+    "n_training_groups_total": 743,
+    "n_training_groups_hit": 4,
+    "group_coverage_rate": 0.0054,
+    "n_unattributed_candidates": 92,
+    "unattributed_rate": 0.92,
+    "n_attributed_candidates": 8,
+    "most_hit_groups": [
+      [
+        "not_clustered_reference_overlap_or_non_novelty_safe",
+        5
+      ],
+      [
+        "indel_80_000003",
+        1
+      ],
+      [
+        "indel_80_000019",
+        1
+      ],
+      [
+        "indel_80_000005",
+        1
+      ]
+    ],
+    "max_edits": 2
+  }
+}

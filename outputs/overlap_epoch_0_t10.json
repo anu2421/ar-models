@@ -1,0 +1,105 @@
+{
+  "candidate_file": "outputs/finetuned_candidates_epoch_0_t10.csv",
+  "reference": "splits ['core_train_only', 'train']",
+  "data_version": "1.0",
+  "validity": {
+    "n_generated": 100,
+    "n_valid": 100,
+    "validity_rate": 1.0,
+    "reason_counts": {
+      "valid": 100
+    },
+    "n_duplicates": 1,
+    "n_unique": 99
+  },
+  "training_overlap": {
+    "n_candidates": 100,
+    "n_training": 26699,
+    "max_edits": 1,
+    "identity_threshold": 0.9,
+    "n_exact_matches": 15,
+    "exact_match_rate": 0.15,
+    "n_near_matches": 18,
+    "near_match_rate": 0.18,
+    "n_high_identity": 21,
+    "high_identity_rate": 0.21,
+    "n_novel": 79,
+    "novelty_rate": 0.79
+  },
+  "internal_redundancy": {
+    "n_candidates": 100,
+    "n_exact_unique": 99,
+    "exact_duplicate_count": 1,
+    "n_clusters": 99,
+    "largest_cluster_size": 2,
+    "singleton_rate": 0.98,
+    "effective_diversity": 0.99,
+    "cluster_size_histogram": {
+      "2": 1,
+      "1": 98
+    },
+    "top_clusters": [
+      {
+        "size": 2,
+        "representative": "ILPWKWPWWPWRR",
+        "members_preview": [
+          "ILPWKWPWWPWRR",
+          "ILPWKWPWWPWRR"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "YLKKKLAFLKKQLLELLEEGKNQQEKNEQELLELDKWASLWNWF",
+        "members_preview": [
+          "YLKKKLAFLKKQLLELLEEGKNQQEKNEQELLELDKWASLWNWF"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "WIFRALRGGNVIGKKIR",
+        "members_preview": [
+          "WIFRALRGGNVIGKKIR"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "SIWGTILKWGKSILPSVIGAIKKLK",
+        "members_preview": [
+          "SIWGTILKWGKSILPSVIGAIKKLK"
+        ]
+      },
+      {
+        "size": 1,
+        "representative": "GLLRRGRGRRLGRR",
+        "members_preview": [
+          "GLLRRGRGRRLGRR"
+        ]
+      }
+    ],
+    "max_edits": 2
+  },
+  "group_coverage": {
+    "n_candidates": 100,
+    "n_training_groups_total": 743,
+    "n_training_groups_hit": 3,
+    "group_coverage_rate": 0.004,
+    "n_unattributed_candidates": 75,
+    "unattributed_rate": 0.75,
+    "n_attributed_candidates": 25,
+    "most_hit_groups": [
+      [
+        "not_clustered_reference_overlap_or_non_novelty_safe",
+        21
+      ],
+      [
+        "indel_80_000003",
+        2
+      ],
+      [
+        "indel_80_000005",
+        2
+      ]
+    ],
+    "max_edits": 2
+  }
+}
